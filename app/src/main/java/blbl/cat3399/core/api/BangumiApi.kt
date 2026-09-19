@@ -274,47 +274,51 @@ object BangumiApi {
             score = scoreRaw?.takeIf { s -> !s.isNaN() && s > 0.0 },
             rank = it.optInt("rank", -1).takeIf { r -> r > 0 },
             summary = it.optString("summary").orEmpty().takeIf { s -> s.isNotBlank() },
-            tags = pickTags(metaTags, parseTagNames(it.optJSONArray("tags"))),
+            tags = pickTags(parseTagNames(it.optJSONArray("tags")), metaTags),
             metaTags = metaTags,
             totalEpisodes = it.optInt("eps", 0).takeIf { e -> e > 0 },
             airedEpisodes = it.optInt("aired", 0).takeIf { a -> a > 0 }, // 缓存序列化用
         )
     }
 
-    /** 提取 tags 数组的 name 列表(保持原顺序,不做过滤) */
+    /** 提取 tags 数组的 name 列表,显式按 count 票数降序(不赌接口已排序,见 v0-api-guide) */
     private fun parseTagNames(tags: JSONArray?): List<String> {
         if (tags == null) return emptyList()
-        val out = ArrayList<String>(tags.length())
+        val names = ArrayList<Pair<String, Int>>(tags.length())
         for (i in 0 until tags.length()) {
-            val name = tags.optJSONObject(i)?.optString("name").orEmpty().trim()
-            if (name.isNotEmpty()) out += name
+            val o = tags.optJSONObject(i) ?: continue
+            val name = o.optString("name").orEmpty().trim()
+            if (name.isNotEmpty()) names += name to o.optInt("count", 0)
         }
-        return out
+        return names.sortedByDescending { it.second }.map { it.first }
     }
 
     /**
-     * 双层白名单筛选(取前 2 个):
-     * 候选 = meta_tags(列表接口的受控摘要词表) ∪ tags.name,去重保持原顺序,
-     * 按 Tier1(题材)命中在前 → Tier2(来源·受众)补满槽位;都不命中返回空。
-     * 只用列表数据,不做详情补拉。
+     * 双层白名单筛选(取前 2 个),对齐 bili-bgm-overlay v0-api-guide v1.4.0 方案:
+     * 候选池 = tags(票数降序,内容词主力) ++ meta_tags(服务端结构化摘要),LinkedHashSet 并集去重;
+     * 按池顺序筛 Tier1(题材)命中在前 → Tier2(来源·受众)补满槽位;都不命中返回空。
+     * - tags 在前:meta_tags 为塞平台/地区词会挤掉题材词(如[276787]梅比乌斯之尘 meta_tags 只有"原创",
+     *   tags 里却有 科幻54票/战斗29票),并集后才能显示"科幻/战斗"
+     * - meta_tags 有服务端重复 bug(60 条中 21 条),靠并集去重
+     * - 只用列表接口数据,不做详情补拉(详情 tags 与列表项逐字节一致,补拉零收益)
      */
-    private fun pickTags(metaTags: List<String>, tagNames: List<String>): List<String> {
-        val uniq = LinkedHashSet<String>().apply { addAll(metaTags); addAll(tagNames) }
+    private fun pickTags(tagNames: List<String>, metaTags: List<String>): List<String> {
+        val uniq = LinkedHashSet<String>().apply { addAll(tagNames); addAll(metaTags) }
         val out = ArrayList<String>(2)
-        for (t in TAG_T1) if (t in uniq) { out += t; if (out.size >= 2) return out }
-        for (t in TAG_T2) if (t in uniq) { out += t; if (out.size >= 2) return out }
+        for (t in uniq) { if (t in TAG_T1) { out += t; if (out.size >= 2) return out } }
+        for (t in uniq) { if (t in TAG_T2) { out += t; if (out.size >= 2) return out } }
         return out
     }
 
-    /** 解析字符串数组(meta_tags 等原始文本数组) */
+    /** 解析字符串数组(meta_tags 等),保序去重(v0 meta_tags 有服务端重复 bug,60 条中 21 条) */
     private fun parseStringArray(arr: JSONArray?): List<String> {
         if (arr == null) return emptyList()
-        val out = ArrayList<String>(arr.length())
+        val out = LinkedHashSet<String>(arr.length())
         for (i in 0 until arr.length()) {
             val s = arr.optString(i).orEmpty().trim()
             if (s.isNotEmpty()) out += s
         }
-        return out
+        return out.toList()
     }
 
     private fun readCache(name: String): String? {
