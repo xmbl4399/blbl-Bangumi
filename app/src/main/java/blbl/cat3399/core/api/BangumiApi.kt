@@ -33,23 +33,32 @@ import java.util.concurrent.TimeUnit
 object BangumiApi {
     private const val TAG = "BangumiApi"
     private const val BASE = "https://api.bgm.tv"
-    private const val USER_AGENT = "blbl/0.1 (https://github.com/xmbl4399/blbl; bangumi calendar)"
+    private const val USER_AGENT = "blbl/0.1 (https://github.com/xmbl4399/blbl-Bangumi; bangumi calendar)"
     private const val QUARTER_CACHE_AGE_MS = 12 * 60 * 60 * 1000L
     private const val QUARTER_CACHE_AGE_MS_HISTORY = 30L * 24 * 60 * 60 * 1000L // 历史年份 30 天(数据固定,省 12 倍请求)
 
     private lateinit var cacheDir: File
 
     /**
-     * 流派白名单(命中即作为卡片左上角标签,取前 2 个)。
+     * 双层流派白名单(设计文档: bili-bgm-overlay/docs/tier-whitelist-design.md)。
+     * 词表来自 bgm 列表接口 meta_tags 的真实受控小词表(四年 937 条去重仅 53 词),
+     * 非直觉词表——原 46 词单层表里 39 词在列表数据零命中。
+     * 覆盖率实测(T1+T2,只用列表数据,无详情补拉):
+     * 2023=90.3% / 2024=90.0% / 2025=90.5% / 2026=94.6%。
      * 仅动画向(日剧/电影不显示 tag,见 BangumiCalendarAdapter.showTags)。
      */
-    private val TAG_WHITELIST =
+    /** Tier1 题材(27 词)——显示优先 */
+    private val TAG_T1 =
         setOf(
-            "奇幻", "冒险", "战斗", "校园", "日常", "科幻", "恋爱", "喜剧", "热血", "悬疑",
-            "推理", "机战", "运动", "音乐", "美食", "治愈", "恐怖", "历史", "偶像", "百合",
-            "耽美", "竞技", "动作", "剧情", "搞笑", "催泪", "致郁", "魔法", "机甲", "战争",
-            "体育", "侦探", "后宫", "穿越", "异世界", "职场", "青春", "家庭", "童话", "歌舞",
-            "泡面番", "群像", "智斗", "犯罪", "末世", "科幻悬疑", "恋爱喜剧",
+            "奇幻", "战斗", "恋爱", "日常", "校园", "科幻", "喜剧", "玄幻", "冒险", "悬疑",
+            "百合", "穿越", "运动", "音乐", "历史", "剧情", "后宫", "武侠", "推理", "职场",
+            "机战", "美食", "萌系", "BL", "恐怖", "惊悚", "耽美",
+        )
+    /** Tier2 来源·受众(12 词)——Tier1 无词时兜底,或补满槽位 */
+    private val TAG_T2 =
+        setOf(
+            "漫画改", "原创", "小说改", "游戏改", "少年向", "青年向", "子供向",
+            "女性向", "少女向", "同人", "影视改", "乙女",
         )
 
     // Bangumi 与 B站风控体系无关,使用独立客户端(不带 B站 UA/Referer/Origin 拦截器)。
@@ -81,7 +90,7 @@ object BangumiApi {
      * 用于年份页面流式加载第一步"先显缓存月"(秒出)。
      */
     fun cachedYearMonth(type: Int, cat: Int, year: Int, month: Int, korean: Boolean = false): List<BangumiCalendarItem>? {
-        val cacheName = "browse_${type}_${cat}_${year}_${month}_v5.json"
+        val cacheName = "browse_${type}_${cat}_${year}_${month}_v6.json"
         val cached = readCache(cacheName) ?: return null
         // 单月缓存 JSON 小(几十 KB),同步解析可接受
         val items = runCatching { parseItems(JSONArray(cached)) }.getOrNull() ?: return null
@@ -97,7 +106,7 @@ object BangumiApi {
      * 缓存:当年 12h / 历史年份 30 天。
      */
     suspend fun browseYearMonth(type: Int, cat: Int, year: Int, month: Int, korean: Boolean = false, force: Boolean = false): List<BangumiCalendarItem> {
-        val cacheName = "browse_${type}_${cat}_${year}_${month}_v5.json"
+        val cacheName = "browse_${type}_${cat}_${year}_${month}_v6.json"
         // 当年 12h 缓存;历史年份 30 天(数据固定)
         val cacheAge =
             if (Calendar.getInstance().get(Calendar.YEAR) == year) QUARTER_CACHE_AGE_MS else QUARTER_CACHE_AGE_MS_HISTORY
@@ -252,6 +261,7 @@ object BangumiApi {
             }
         val rating = it.optJSONObject("rating")
         val scoreRaw = rating?.optDouble("score", Double.NaN)
+        val metaTags = parseStringArray(it.optJSONArray("meta_tags"))
         val airDate =
             it.optString("air_date").orEmpty().takeIf { d -> d.isNotBlank() }
                 ?: it.optString("date").orEmpty().takeIf { d -> d.isNotBlank() }
@@ -264,22 +274,35 @@ object BangumiApi {
             score = scoreRaw?.takeIf { s -> !s.isNaN() && s > 0.0 },
             rank = it.optInt("rank", -1).takeIf { r -> r > 0 },
             summary = it.optString("summary").orEmpty().takeIf { s -> s.isNotBlank() },
-            tags = parseTags(it.optJSONArray("tags")),
-            metaTags = parseStringArray(it.optJSONArray("meta_tags")),
+            tags = pickTags(metaTags, parseTagNames(it.optJSONArray("tags"))),
+            metaTags = metaTags,
             totalEpisodes = it.optInt("eps", 0).takeIf { e -> e > 0 },
             airedEpisodes = it.optInt("aired", 0).takeIf { a -> a > 0 }, // 缓存序列化用
         )
     }
 
-    /** 从 tags 数组按白名单过滤,取前 2 个(保持 tags 原热度顺序) */
-    private fun parseTags(tags: JSONArray?): List<String> {
+    /** 提取 tags 数组的 name 列表(保持原顺序,不做过滤) */
+    private fun parseTagNames(tags: JSONArray?): List<String> {
         if (tags == null) return emptyList()
-        val out = ArrayList<String>(2)
+        val out = ArrayList<String>(tags.length())
         for (i in 0 until tags.length()) {
             val name = tags.optJSONObject(i)?.optString("name").orEmpty().trim()
-            if (name in TAG_WHITELIST) out += name
-            if (out.size >= 2) break
+            if (name.isNotEmpty()) out += name
         }
+        return out
+    }
+
+    /**
+     * 双层白名单筛选(取前 2 个):
+     * 候选 = meta_tags(列表接口的受控摘要词表) ∪ tags.name,去重保持原顺序,
+     * 按 Tier1(题材)命中在前 → Tier2(来源·受众)补满槽位;都不命中返回空。
+     * 只用列表数据,不做详情补拉。
+     */
+    private fun pickTags(metaTags: List<String>, tagNames: List<String>): List<String> {
+        val uniq = LinkedHashSet<String>().apply { addAll(metaTags); addAll(tagNames) }
+        val out = ArrayList<String>(2)
+        for (t in TAG_T1) if (t in uniq) { out += t; if (out.size >= 2) return out }
+        for (t in TAG_T2) if (t in uniq) { out += t; if (out.size >= 2) return out }
         return out
     }
 
