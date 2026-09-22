@@ -3,6 +3,7 @@ package blbl.cat3399.feature.home
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import blbl.cat3399.R
@@ -125,13 +126,21 @@ class BangumiCalendarAdapter(
                 else item.searchKeyword
             binding.tvTitle.text = displayTitle
 
-            // 评分徽章:右上角;>=7 分金色醒目,<7 分半透明低调
+            // 评分徽章:右上角;>=7 分金底 + 深色数字(白字压金底对比度仅 ~2:1),
+            // <7 分高不透明深底 + 白字 + 细描边,与封面流派 tag 同一视觉语言
             val score = item.score
             if (score != null) {
+                val highlighted = score >= 7.0
                 binding.tvAccessBadgeText.visibility = View.VISIBLE
                 binding.tvAccessBadgeText.text = String.format(Locale.US, "%.1f", score)
+                binding.tvAccessBadgeText.setTextColor(
+                    ContextCompat.getColor(
+                        binding.root.context,
+                        if (highlighted) R.color.blbl_text_on_gold else android.R.color.white,
+                    ),
+                )
                 binding.tvAccessBadgeText.setBackgroundResource(
-                    if (score >= 7.0) R.drawable.bg_score_badge_highlight else R.drawable.bg_score_badge_normal,
+                    if (highlighted) R.drawable.bg_score_badge_highlight else R.drawable.bg_score_badge_normal,
                 )
             } else {
                 binding.tvAccessBadgeText.visibility = View.GONE

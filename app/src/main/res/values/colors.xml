@@ -62,5 +62,7 @@
     <color name="blbl_pink">#FB7299</color>
     <!-- Bangumi 评分高亮金色(>=7 分醒目显示) -->
     <color name="blbl_gold">#E8A33D</color>
+    <!-- 金底上的文字色(深色;白字压金底对比度不足) -->
+    <color name="blbl_text_on_gold">#FF2B1E08</color>
     <color name="player_overlay_bg">#80000000</color>
 </resources>
