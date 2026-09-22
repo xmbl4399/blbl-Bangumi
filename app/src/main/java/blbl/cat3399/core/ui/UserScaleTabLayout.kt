@@ -31,7 +31,7 @@ import kotlin.math.abs
  * - For fixed-mode TabLayouts, if the scaled text cannot fit, we temporarily switch to scrollable mode so that
  *   the "tab chips" can grow with content.
  */
-class UserScaleTabLayout @JvmOverloads constructor(
+open class UserScaleTabLayout @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = com.google.android.material.R.attr.tabStyle,

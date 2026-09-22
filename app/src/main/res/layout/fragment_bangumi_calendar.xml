@@ -6,15 +6,22 @@
     android:background="?attr/blblPageBackdrop"
     android:orientation="vertical">
 
-    <!-- 季度切换栏(单排,如 25夏 26冬;最新在前) -->
-    <blbl.cat3399.core.ui.UserScaleTabLayout
+    <!-- 年份切换栏(单排,如 2026 2025 ...;最新在前)
+         DividedTabLayout:相邻年份画低透明度分隔线 + 选中项盖低透明度强调色块
+         (纯 draw,不占宽度 ⇒ 可见年份数量与密度不变) -->
+    <blbl.cat3399.core.ui.DividedTabLayout
         android:id="@+id/tab_quarter"
         style="@style/Widget.Blbl.TabLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
         android:focusable="false"
-        app:tabMode="scrollable" />
+        app:tabIndicatorFullWidth="true"
+        app:tabMode="scrollable"
+        app:tabMinWidth="0dp"
+        app:tabPaddingStart="8dp"
+        app:tabPaddingEnd="8dp"
+        app:tabSelectedTextColor="?attr/blblAccent" />
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/swipe_refresh"
