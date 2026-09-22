@@ -233,7 +233,7 @@ class BangumiCalendarFragment : Fragment(), RefreshKeyHandler, TabSwitchFocusTar
         return lm
     }
 
-    private fun spanCountForCalendar(): Int = BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 6)
+    private fun spanCountForCalendar(): Int = BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 9)
 
     private fun maybeTriggerInitialLoad() {
         if (initialLoadTriggered) return
@@ -266,12 +266,15 @@ class BangumiCalendarFragment : Fragment(), RefreshKeyHandler, TabSwitchFocusTar
 
     private fun loadSeason(isRefresh: Boolean = false) {
         val token = requestToken
-        // 全部模式(TV动画/非TV动画/日剧/电影):年份流式按月加载(从当前月往前逐月追加)
+        // 全部模式(TV动画/其他动画/日剧/电影):年份流式按月加载(从当前月往前逐月追加)
         loadYearMonths(token, selectedYear, isRefresh)
     }
 
-    /** 按模式取指定月的缓存数据(纯缓存读):TV动画=纯 cat=1;非TV动画=cat=5∪2∪3 合并 */
-    private fun cachedMonth(month: Int): List<BangumiCalendarItem>? {
+    /**
+     * 按模式取指定月的缓存数据(纯缓存读):TV动画=纯 cat=1;其他动画=cat=5∪2∪3 合并。
+     * suspend:底层读盘 + JSON 解析已切到 IO,勿在主线程直接调用(整年 36 文件 ≈2.8MB)。
+     */
+    private suspend fun cachedMonth(month: Int): List<BangumiCalendarItem>? {
         return when (mode) {
             BangumiCalendarMode.QUARTER_ANIME -> BangumiApi.cachedYearMonth(2, 1, selectedYear, month)
             BangumiCalendarMode.ANIME_MOVIE -> BangumiApi.cachedAnimeMovieMonth(selectedYear, month)
@@ -279,7 +282,7 @@ class BangumiCalendarFragment : Fragment(), RefreshKeyHandler, TabSwitchFocusTar
         }
     }
 
-    /** 按模式拉取指定月数据(网络,带缓存):TV动画=纯 cat=1;非TV动画=cat=5∪2∪3 合并。
+    /** 按模式拉取指定月数据(网络,带缓存):TV动画=纯 cat=1;其他动画=cat=5∪2∪3 合并。
      *  force=true(下拉刷新)时跳过新鲜缓存强制重新拉取 bgm。 */
     private suspend fun fetchMonth(month: Int, force: Boolean = false): List<BangumiCalendarItem>? {
         return when (mode) {
@@ -616,7 +619,7 @@ class BangumiCalendarFragment : Fragment(), RefreshKeyHandler, TabSwitchFocusTar
     }
 }
 
-/** 数据浏览模式:全部为年份粒度流式加载(TV动画/非TV动画/日剧/电影/欧美剧/华语剧/韩剧) */
+/** 数据浏览模式:全部为年份粒度流式加载(TV动画/其他动画/日剧/电影/欧美剧/华语剧/韩剧) */
 enum class BangumiCalendarMode(
     val type: Int,
     val cat: Int,
@@ -624,9 +627,9 @@ enum class BangumiCalendarMode(
     /** 韩剧:无官方分类,从 cat=6001(电视剧)中按 meta_tags 含"韩国"过滤 */
     val korean: Boolean = false,
 ) {
-    /** TV动画:纯 cat=1(TV),WEB 已拆出到非TV动画页 */
+    /** TV动画:纯 cat=1(TV),WEB 已拆出到其他动画页 */
     QUARTER_ANIME(2, 1, true),
-    /** 非TV动画:cat=5(WEB) ∪ cat=2(OVA) ∪ cat=3(剧场版) 合并(见 BangumiApi.browseAnimeMovieMonth) */
+    /** 其他动画:cat=5(WEB) ∪ cat=2(OVA) ∪ cat=3(剧场版) 合并(见 BangumiApi.browseAnimeMovieMonth) */
     ANIME_MOVIE(2, 3, false),
     DRAMA(6, 1, false),
     MOVIE(6, 6002, false),

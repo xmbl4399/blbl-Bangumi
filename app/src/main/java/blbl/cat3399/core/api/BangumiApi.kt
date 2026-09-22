@@ -88,18 +88,23 @@ object BangumiApi {
     /**
      * 纯缓存读:指定年月的条目(不触发网络,无缓存或已过期也返回缓存值,由调用方决定是否刷新)。
      * 用于年份页面流式加载第一步"先显缓存月"(秒出)。
+     *
+     * 必须 suspend 且切到 IO:年份页一次要扫 12 个月,「其他动画」= 3 分类 × 12 月 = 36 个
+     * JSON 文件(实测 ≈2.8MB)读盘 + 解析。曾在主线程直接调用,实测触发
+     * `Choreographer: Skipped 51 frames`(≈850ms 卡顿)。
      */
-    fun cachedYearMonth(type: Int, cat: Int, year: Int, month: Int, korean: Boolean = false): List<BangumiCalendarItem>? {
+    suspend fun cachedYearMonth(type: Int, cat: Int, year: Int, month: Int, korean: Boolean = false): List<BangumiCalendarItem>? {
         val cacheName = "browse_${type}_${cat}_${year}_${month}_v6.json"
-        val cached = readCache(cacheName) ?: return null
-        // 单月缓存 JSON 小(几十 KB),同步解析可接受
-        val items = runCatching { parseItems(JSONArray(cached)) }.getOrNull() ?: return null
-        return if (korean) items.filter { it.metaTags.contains("韩国") } else items
+        return withContext(Dispatchers.IO) {
+            val cached = readCache(cacheName) ?: return@withContext null
+            val items = runCatching { parseItems(JSONArray(cached)) }.getOrNull() ?: return@withContext null
+            if (korean) items.filter { it.metaTags.contains("韩国") } else items
+        }
     }
 
     /**
      * 指定年份 + 月份 + 分类的条目(当月开播,单月独立缓存)。
-     * 用于 TV动画/非TV动画(type=2)与日剧/电影(type=6)的**年份流式按月加载**。
+     * 用于 TV动画/其他动画(type=2)与日剧/电影(type=6)的**年份流式按月加载**。
      *
      * - 统一不带 sort=rank(rank+month 组合服务端不稳定,cat=3/2 无 rank 条目会截断丢失)
      * - 最终按 rank 重排:动画按 rank 升序(无 rank 垫底),三次元纯评分降序,缓存内容一致
@@ -124,7 +129,7 @@ object BangumiApi {
     }
 
     /**
-     * 非TV动画月数据 = cat=5(WEB) ∪ cat=2(OVA) ∪ cat=3(剧场版) 合并去重(评分降序)。
+     * 其他动画月数据 = cat=5(WEB) ∪ cat=2(OVA) ∪ cat=3(剧场版) 合并去重(评分降序)。
      * 非电视放送的动画合集:WEB(网络播,现代新番大量在此,实测 2026-07 有 36 部)、
      * OVA(原创动画录像带/碟片,cat=2 实测为 OVA 分类)、剧场版(电影)。
      */
@@ -135,8 +140,8 @@ object BangumiApi {
         return mergeByScore(mergeByScore(web, ova), movie)
     }
 
-    /** 非TV动画月数据(纯缓存读,合并三个分类) */
-    fun cachedAnimeMovieMonth(year: Int, month: Int): List<BangumiCalendarItem>? {
+    /** 其他动画月数据(纯缓存读,合并三个分类);suspend 原因同 cachedYearMonth(IO 读盘) */
+    suspend fun cachedAnimeMovieMonth(year: Int, month: Int): List<BangumiCalendarItem>? {
         val web = cachedYearMonth(2, 5, year, month).orEmpty()
         val ova = cachedYearMonth(2, 2, year, month).orEmpty()
         val movie = cachedYearMonth(2, 3, year, month).orEmpty()
