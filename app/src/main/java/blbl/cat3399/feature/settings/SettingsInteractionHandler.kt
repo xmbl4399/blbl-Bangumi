@@ -946,7 +946,7 @@ class SettingsInteractionHandler(
                     items = options,
                     current = SettingsText.gridSpanText(prefs.gridSpanCount),
                 ) { selected ->
-                    prefs.gridSpanCount = (selected.toIntOrNull() ?: 4).coerceIn(1, 6)
+                    prefs.gridSpanCount = (selected.toIntOrNull() ?: 5).coerceIn(1, 6)
                     AppToast.show(activity, "每行卡片：${SettingsText.gridSpanText(prefs.gridSpanCount)}")
                     renderer.refreshSection(entry.id)
                 }
@@ -959,7 +959,7 @@ class SettingsInteractionHandler(
                     items = options,
                     current = SettingsText.gridSpanText(prefs.dynamicGridSpanCount),
                 ) { selected ->
-                    prefs.dynamicGridSpanCount = (selected.toIntOrNull() ?: 3).coerceIn(1, 6)
+                    prefs.dynamicGridSpanCount = (selected.toIntOrNull() ?: 4).coerceIn(1, 6)
                     AppToast.show(activity, "动态每行：${SettingsText.gridSpanText(prefs.dynamicGridSpanCount)}")
                     renderer.refreshSection(entry.id)
                 }
@@ -972,7 +972,7 @@ class SettingsInteractionHandler(
                     items = options,
                     current = SettingsText.gridSpanText(prefs.pgcGridSpanCount),
                 ) { selected ->
-                    prefs.pgcGridSpanCount = (selected.toIntOrNull() ?: 6).coerceIn(1, 6)
+                    prefs.pgcGridSpanCount = (selected.toIntOrNull() ?: 7).coerceIn(1, 9)
                     AppToast.show(activity, "番剧每行：${SettingsText.gridSpanText(prefs.pgcGridSpanCount)}")
                     renderer.refreshSection(entry.id)
                 }

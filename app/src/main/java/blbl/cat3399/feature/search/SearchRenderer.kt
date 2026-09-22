@@ -1050,7 +1050,7 @@ class SearchRenderer internal constructor(
     private fun spanCountForCurrentTab(): Int = spanCountForTab(state.currentTabIndex)
 
     private fun spanCountForBangumi(): Int {
-        return BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 6)
+        return BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 9)
     }
 
     private fun spanCountForWidth(): Int {

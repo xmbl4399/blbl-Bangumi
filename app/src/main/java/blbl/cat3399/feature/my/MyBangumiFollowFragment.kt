@@ -130,7 +130,7 @@ class MyBangumiFollowFragment : Fragment(), MyTabSwitchFocusTarget, RefreshKeyHa
 
     private fun spanCountForBangumi(): Int {
         val prefs = BiliClient.prefs
-        return prefs.pgcGridSpanCount.coerceIn(1, 6)
+        return prefs.pgcGridSpanCount.coerceIn(1, 9)
     }
 
     override fun requestFocusFirstItemFromTabSwitch(): Boolean {

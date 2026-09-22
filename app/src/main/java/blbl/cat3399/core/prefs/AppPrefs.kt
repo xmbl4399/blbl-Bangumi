@@ -846,30 +846,32 @@ class AppPrefs(context: Context) {
             }
         }
 
+    // 二改默认值:每行卡片 4 -> 5
     var gridSpanCount: Int
         get() {
-            val stored = prefs.getInt(KEY_GRID_SPAN, 4)
-            val span = if (stored <= 0) 4 else stored
+            val stored = prefs.getInt(KEY_GRID_SPAN, 5)
+            val span = if (stored <= 0) 5 else stored
             return span.coerceIn(1, 6)
         }
         set(value) {
-            val span = if (value <= 0) 4 else value
+            val span = if (value <= 0) 5 else value
             prefs.edit().putInt(KEY_GRID_SPAN, span.coerceIn(1, 6)).apply()
         }
 
+    // 二改默认值:动态页每行卡片 3 -> 4
     var dynamicGridSpanCount: Int
-        get() = prefs.getInt(KEY_DYNAMIC_GRID_SPAN, 3)
+        get() = prefs.getInt(KEY_DYNAMIC_GRID_SPAN, 4)
         set(value) = prefs.edit().putInt(KEY_DYNAMIC_GRID_SPAN, value).apply()
 
     var pgcGridSpanCount: Int
         get() {
-            val stored = prefs.getInt(KEY_PGC_GRID_SPAN, 6)
-            val span = if (stored <= 0) 6 else stored
-            return span.coerceIn(1, 6)
+            val stored = prefs.getInt(KEY_PGC_GRID_SPAN, 7)
+            val span = if (stored <= 0) 7 else stored
+            return span.coerceIn(1, 9)
         }
         set(value) {
-            val span = if (value <= 0) 6 else value
-            prefs.edit().putInt(KEY_PGC_GRID_SPAN, span.coerceIn(1, 6)).apply()
+            val span = if (value <= 0) 7 else value
+            prefs.edit().putInt(KEY_PGC_GRID_SPAN, span.coerceIn(1, 9)).apply()
         }
 
     var pgcEpisodeOrderReversed: Boolean
@@ -1077,7 +1079,7 @@ class AppPrefs(context: Context) {
         private const val KEY_CUSTOM_PAGE_CONFIG = "custom_page_config"
         private const val KEY_MAIN_HOME_VISIBLE_TABS = "main_home_visible_tabs"
 
-        /** 二改默认主页 tab:推荐/热门/TV动画/非TV动画/电影/日剧/韩剧/欧美剧/华语剧;
+        /** 二改默认主页 tab:推荐/热门/TV动画/其他动画/日剧/欧美剧/华语剧/韩剧/电影;
          * 源 app 的"番剧/影视"默认隐藏(可在设置手动勾回) */
         private val DEFAULT_HOME_VISIBLE_TABS =
             listOf(
@@ -1085,11 +1087,11 @@ class AppPrefs(context: Context) {
                 "popular",
                 "bangumi_calendar",
                 "anime_movie",
-                "movie",
                 "drama",
-                "korean_drama",
                 "western_drama",
                 "chinese_drama",
+                "korean_drama",
+                "movie",
             )
         private const val KEY_MAIN_CATEGORY_VISIBLE_TABS = "main_category_visible_tabs"
         private const val KEY_MAIN_LIVE_VISIBLE_TABS = "main_live_visible_tabs"
