@@ -6,6 +6,7 @@ import blbl.cat3399.core.model.BangumiCalendarDay
 import blbl.cat3399.core.model.BangumiCalendarItem
 import blbl.cat3399.core.net.BiliClient
 import blbl.cat3399.core.net.await
+import blbl.cat3399.core.prefs.AppPrefs
 import blbl.cat3399.core.net.bodyOrNull
 import blbl.cat3399.core.net.parseHttpUrl
 import blbl.cat3399.core.net.statusCode
@@ -257,11 +258,11 @@ object BangumiApi {
      * - 指定源:只走该源。
      */
     private fun candidateBases(): List<String> {
-        val pref = runCatching { BiliClient.prefs.bangumiApiSource }.getOrDefault(BANGUMI_API_SOURCE_AUTO)
+        val pref = runCatching { BiliClient.prefs.bangumiApiSource }.getOrDefault(AppPrefs.BANGUMI_API_SOURCE_AUTO)
         return when (pref) {
-            BANGUMI_API_SOURCE_OFFICIAL -> listOf(BASE_OFFICIAL)
-            BANGUMI_API_SOURCE_ANIBT -> listOf(BASE_ANIBT)
-            BANGUMI_API_SOURCE_RETR0 -> listOf(BASE_RETR0)
+            AppPrefs.BANGUMI_API_SOURCE_OFFICIAL -> listOf(BASE_OFFICIAL)
+            AppPrefs.BANGUMI_API_SOURCE_ANIBT -> listOf(BASE_ANIBT)
+            AppPrefs.BANGUMI_API_SOURCE_RETR0 -> listOf(BASE_RETR0)
             else -> {
                 // 自动:上次成功的源优先,其后官方,再其余反代
                 val good = lastGoodBase
@@ -330,11 +331,11 @@ object BangumiApi {
         if (u.isEmpty()) return url
         val idx = u.indexOf("/pic/").takeIf { it >= 0 } ?: u.indexOf("/r/").takeIf { it >= 0 } ?: return url
         val path = u.substring(idx)
-        val pref = runCatching { BiliClient.prefs.bangumiApiSource }.getOrDefault(BANGUMI_API_SOURCE_AUTO)
+        val pref = runCatching { BiliClient.prefs.bangumiApiSource }.getOrDefault(AppPrefs.BANGUMI_API_SOURCE_AUTO)
         val target = when (pref) {
-            BANGUMI_API_SOURCE_RETR0 -> IMG_RETR0
-            BANGUMI_API_SOURCE_ANIBT -> IMG_ANIBT
-            BANGUMI_API_SOURCE_OFFICIAL -> IMG_ANIBT
+            AppPrefs.BANGUMI_API_SOURCE_RETR0 -> IMG_RETR0
+            AppPrefs.BANGUMI_API_SOURCE_ANIBT -> IMG_ANIBT
+            AppPrefs.BANGUMI_API_SOURCE_OFFICIAL -> IMG_ANIBT
             else -> {
                 // auto:来源为官方(被阻断)时改写;反代图床原样保留
                 val host = runCatching { u.parseHttpUrl()?.urlHost()?.lowercase() }.getOrNull().orEmpty()
