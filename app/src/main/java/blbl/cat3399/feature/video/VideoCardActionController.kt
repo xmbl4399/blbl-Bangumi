@@ -71,7 +71,7 @@ class VideoCardActionController(
         card: VideoCard,
         position: Int,
     ) {
-        if (card.bvid.isBlank()) {
+        if (!card.hasVideoDetailIdentity()) {
             AppToast.show(context, context.getString(R.string.video_card_action_open_detail_unsupported))
             return
         }

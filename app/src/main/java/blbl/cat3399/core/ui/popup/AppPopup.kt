@@ -393,8 +393,10 @@ object AppPopup {
         actions: List<PopupAction>,
         preferredActionRole: PopupActionRole? = PopupActionRole.POSITIVE,
         autoFocus: Boolean = true,
+        modalSizing: PopupModalSizing = PopupModalSizing(),
         onModalAttached: ((modalRoot: View) -> Unit)? = null,
         onDismiss: (() -> Unit)? = null,
+        onBackPressed: (() -> Boolean)? = null,
         content: (dialogContext: Context) -> View,
     ): PopupHandle? {
         return runOnMainOrPost {
@@ -408,8 +410,10 @@ object AppPopup {
                 actions = actions,
                 preferredActionRole = preferredActionRole,
                 autoFocus = autoFocus,
+                modalSizing = modalSizing,
                 onModalAttached = onModalAttached,
                 onDismiss = onDismiss,
+                onBackPressed = onBackPressed,
             )
         }
     }

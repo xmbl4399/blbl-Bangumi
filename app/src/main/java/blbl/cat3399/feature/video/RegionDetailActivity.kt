@@ -218,7 +218,7 @@ class RegionDetailActivity : BaseActivity() {
                 var targetPage = page
                 var loadedPage: Pair<List<VideoCard>, Boolean>? = null
                 while (loadedPage == null) {
-                    val res = BiliApi.regionLatestPage(rid = rid, pn = targetPage, ps = 24)
+                    val res = BiliApi.regionRankPage(rid = rid, pn = targetPage, ps = 24)
                     if (token != requestToken) return@launch
                     val hasMore = res.hasMore
                     val visibleItems = VideoCardVisibilityFilter.filterVisibleFresh(res.items, loadedStableKeys)
@@ -328,7 +328,7 @@ class RegionDetailActivity : BaseActivity() {
             hasMoreProvider = { !endReached },
         ) { targetPage ->
             val pageNum = targetPage.coerceAtLeast(1)
-            val res = BiliApi.regionLatestPage(rid = rid, pn = pageNum, ps = 24)
+            val res = BiliApi.regionRankPage(rid = rid, pn = pageNum, ps = 24)
             VideoCardPlaylistPage(
                 cards = res.items,
                 nextCursor = pageNum + 1,

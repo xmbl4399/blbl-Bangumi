@@ -3,6 +3,7 @@ package blbl.cat3399.core.prefs
 import android.content.Context
 import android.os.Build
 import android.provider.Settings
+import blbl.cat3399.core.api.SponsorBlockCategories
 import blbl.cat3399.core.tv.isTvDevice
 import blbl.cat3399.core.net.parseHttpUrl
 import blbl.cat3399.core.net.parseHttpUrl
@@ -95,7 +96,12 @@ class AppPrefs(context: Context) {
         }
 
     var mainHomeVisibleTabs: List<String>
-        get() = loadStringList(KEY_MAIN_HOME_VISIBLE_TABS)
+        get() {
+            // 二改默认:推荐/热门/季度动画/剧场动画/日剧/电影 6 项显示,源 app 的"番剧/影视"默认隐藏(可在设置手动勾回)
+            val saved = loadStringList(KEY_MAIN_HOME_VISIBLE_TABS)
+            if (saved.isNotEmpty()) return saved
+            return DEFAULT_HOME_VISIBLE_TABS
+        }
         set(value) = saveStringList(KEY_MAIN_HOME_VISIBLE_TABS, normalizeStringList(value))
 
     var mainCategoryVisibleTabs: List<String>
@@ -109,6 +115,11 @@ class AppPrefs(context: Context) {
     var mainMyVisibleTabs: List<String>
         get() = loadStringList(KEY_MAIN_MY_VISIBLE_TABS)
         set(value) = saveStringList(KEY_MAIN_MY_VISIBLE_TABS, normalizeStringList(value))
+
+    /** 隐藏无评分条目(全部页面生效):开启后清空全部页面缓存,仅显示有评分的条目;默认开启 */
+    var hideNoScoreMedia: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_NO_SCORE_MEDIA, true)
+        set(value) = prefs.edit().putBoolean(KEY_HIDE_NO_SCORE_MEDIA, value).apply()
 
     var followingListOrder: String
         get() {
@@ -234,7 +245,7 @@ class AppPrefs(context: Context) {
         set(value) = prefs.edit().putFloat(KEY_DANMAKU_OPACITY, value).apply()
 
     var danmakuTextSizeSp: Float
-        get() = prefs.getFloat(KEY_DANMAKU_TEXT_SIZE_SP, 18f)
+        get() = prefs.getFloat(KEY_DANMAKU_TEXT_SIZE_SP, 40f)
         set(value) = prefs.edit().putFloat(KEY_DANMAKU_TEXT_SIZE_SP, value).apply()
 
     var danmakuLaneDensity: String
@@ -319,6 +330,13 @@ class AppPrefs(context: Context) {
         get() = prefs.getInt(KEY_PLAYER_PREFERRED_QN, 80)
         set(value) = prefs.edit().putInt(KEY_PLAYER_PREFERRED_QN, value).apply()
 
+    var playerPreferredQnPgc: Int
+        get() {
+            if (!prefs.contains(KEY_PLAYER_PREFERRED_QN_PGC)) return playerPreferredQn
+            return prefs.getInt(KEY_PLAYER_PREFERRED_QN_PGC, playerPreferredQn)
+        }
+        set(value) = prefs.edit().putInt(KEY_PLAYER_PREFERRED_QN_PGC, value).apply()
+
     var playerPreferredQnPortrait: Int
         get() {
             if (!prefs.contains(KEY_PLAYER_PREFERRED_QN_PORTRAIT)) return playerPreferredQn
@@ -329,6 +347,10 @@ class AppPrefs(context: Context) {
     var playerPreferredCodec: String
         get() = prefs.getString(KEY_PLAYER_CODEC, "AVC") ?: "AVC"
         set(value) = prefs.edit().putString(KEY_PLAYER_CODEC, value).apply()
+
+    var playerSeamlessQualitySwitchEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PLAYER_SEAMLESS_QUALITY_SWITCH_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_PLAYER_SEAMLESS_QUALITY_SWITCH_ENABLED, value).apply()
 
     var playerRenderViewType: String
         get() {
@@ -540,6 +562,22 @@ class AppPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_PLAYER_AUTO_SKIP_SEGMENTS_ENABLED, false)
         set(value) = prefs.edit().putBoolean(KEY_PLAYER_AUTO_SKIP_SEGMENTS_ENABLED, value).apply()
 
+    var playerAutoSkipSegmentCategories: List<String>
+        get() {
+            if (!prefs.contains(KEY_PLAYER_AUTO_SKIP_SEGMENT_CATEGORIES)) {
+                return SponsorBlockCategories.AUTO_SKIP_KEYS
+            }
+            return SponsorBlockCategories.normalizeSelectedAutoSkipCategories(
+                loadStringList(KEY_PLAYER_AUTO_SKIP_SEGMENT_CATEGORIES),
+            )
+        }
+        set(value) {
+            saveStringList(
+                KEY_PLAYER_AUTO_SKIP_SEGMENT_CATEGORIES,
+                SponsorBlockCategories.normalizeSelectedAutoSkipCategories(value),
+            )
+        }
+
     var playerAutoSkipServerBaseUrl: String
         get() =
             normalizePlayerAutoSkipServerBaseUrl(prefs.getString(KEY_PLAYER_AUTO_SKIP_SERVER_BASE_URL, null))
@@ -576,7 +614,7 @@ class AppPrefs(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_PLAYER_OPEN_DETAIL_BEFORE_PLAY, value).apply()
 
     var fullscreenEnabled: Boolean
-        get() = prefs.getBoolean(KEY_FULLSCREEN, true)
+        get() = prefs.getBoolean(KEY_FULLSCREEN, false)
         set(value) = prefs.edit().putBoolean(KEY_FULLSCREEN, value).apply()
 
     var avoidDisplayCutout: Boolean
@@ -776,7 +814,7 @@ class AppPrefs(context: Context) {
         }
 
     var playerPlaybackMode: String
-        get() = PlayerPlaybackModes.normalize(prefs.getString(KEY_PLAYER_PLAYBACK_MODE, PLAYER_PLAYBACK_MODE_NONE))
+        get() = PlayerPlaybackModes.normalize(prefs.getString(KEY_PLAYER_PLAYBACK_MODE, PLAYER_PLAYBACK_MODE_PARTS_LIST))
         set(value) = prefs.edit().putString(KEY_PLAYER_PLAYBACK_MODE, PlayerPlaybackModes.normalize(value)).apply()
 
     var playerSettingsApplyToGlobal: Boolean
@@ -813,30 +851,32 @@ class AppPrefs(context: Context) {
             }
         }
 
+    // 二改默认值:每行卡片 4 -> 5
     var gridSpanCount: Int
         get() {
-            val stored = prefs.getInt(KEY_GRID_SPAN, 4)
-            val span = if (stored <= 0) 4 else stored
+            val stored = prefs.getInt(KEY_GRID_SPAN, 5)
+            val span = if (stored <= 0) 5 else stored
             return span.coerceIn(1, 6)
         }
         set(value) {
-            val span = if (value <= 0) 4 else value
+            val span = if (value <= 0) 5 else value
             prefs.edit().putInt(KEY_GRID_SPAN, span.coerceIn(1, 6)).apply()
         }
 
+    // 二改默认值:动态页每行卡片 3 -> 4
     var dynamicGridSpanCount: Int
-        get() = prefs.getInt(KEY_DYNAMIC_GRID_SPAN, 3)
+        get() = prefs.getInt(KEY_DYNAMIC_GRID_SPAN, 4)
         set(value) = prefs.edit().putInt(KEY_DYNAMIC_GRID_SPAN, value).apply()
 
     var pgcGridSpanCount: Int
         get() {
-            val stored = prefs.getInt(KEY_PGC_GRID_SPAN, 6)
-            val span = if (stored <= 0) 6 else stored
-            return span.coerceIn(1, 6)
+            val stored = prefs.getInt(KEY_PGC_GRID_SPAN, 7)
+            val span = if (stored <= 0) 7 else stored
+            return span.coerceIn(1, 9)
         }
         set(value) {
-            val span = if (value <= 0) 6 else value
-            prefs.edit().putInt(KEY_PGC_GRID_SPAN, span.coerceIn(1, 6)).apply()
+            val span = if (value <= 0) 7 else value
+            prefs.edit().putInt(KEY_PGC_GRID_SPAN, span.coerceIn(1, 9)).apply()
         }
 
     var pgcEpisodeOrderReversed: Boolean
@@ -871,6 +911,12 @@ class AppPrefs(context: Context) {
 
     fun clearSearchHistory() {
         prefs.edit().remove(KEY_SEARCH_HISTORY).apply()
+    }
+
+    fun removeSearchHistory(keyword: String) {
+        val target = keyword.trim()
+        if (target.isBlank()) return
+        searchHistory = searchHistory.filterNot { it.equals(target, ignoreCase = true) }
     }
 
     fun exportConfigSnapshotJson(): JSONObject =
@@ -1037,9 +1083,25 @@ class AppPrefs(context: Context) {
         private const val KEY_STARTUP_PAGE = "startup_page"
         private const val KEY_CUSTOM_PAGE_CONFIG = "custom_page_config"
         private const val KEY_MAIN_HOME_VISIBLE_TABS = "main_home_visible_tabs"
+
+        /** 二改默认主页 tab:推荐/热门/TV动画/其他动画/日剧/欧美剧/华语剧/韩剧/电影;
+         * 源 app 的"番剧/影视"默认隐藏(可在设置手动勾回) */
+        private val DEFAULT_HOME_VISIBLE_TABS =
+            listOf(
+                "recommend",
+                "popular",
+                "bangumi_calendar",
+                "anime_movie",
+                "drama",
+                "western_drama",
+                "chinese_drama",
+                "korean_drama",
+                "movie",
+            )
         private const val KEY_MAIN_CATEGORY_VISIBLE_TABS = "main_category_visible_tabs"
         private const val KEY_MAIN_LIVE_VISIBLE_TABS = "main_live_visible_tabs"
         private const val KEY_MAIN_MY_VISIBLE_TABS = "main_my_visible_tabs"
+        private const val KEY_HIDE_NO_SCORE_MEDIA = "hide_no_score_media"
         private const val KEY_FOLLOWING_LIST_ORDER = "following_list_order"
         private const val KEY_DYNAMIC_FOLLOWING_RECENT_UPDATE_DOT_ENABLED = "dynamic_following_recent_update_dot_enabled"
         private const val KEY_AUTO_UPDATE_CHECK_ENABLED = "auto_update_check_enabled"
@@ -1063,8 +1125,10 @@ class AppPrefs(context: Context) {
         private const val KEY_DANMAKU_SPEED = "danmaku_speed"
         private const val KEY_DANMAKU_AREA = "danmaku_area"
         private const val KEY_PLAYER_PREFERRED_QN = "player_preferred_qn"
+        private const val KEY_PLAYER_PREFERRED_QN_PGC = "player_preferred_qn_pgc"
         private const val KEY_PLAYER_PREFERRED_QN_PORTRAIT = "player_preferred_qn_portrait"
         private const val KEY_PLAYER_CODEC = "player_codec"
+        private const val KEY_PLAYER_SEAMLESS_QUALITY_SWITCH_ENABLED = "player_seamless_quality_switch_enabled"
         private const val KEY_PLAYER_RENDER_VIEW = "player_render_view"
         private const val KEY_PLAYER_ENGINE_KIND = "player_engine_kind"
         private const val KEY_PLAYER_STYLE = "player_style"
@@ -1084,6 +1148,7 @@ class AppPrefs(context: Context) {
         private const val KEY_PLAYER_HOLD_SCRUB_FIXED_STEP_SECONDS = "player_hold_scrub_fixed_step_seconds"
         private const val KEY_PLAYER_AUTO_RESUME_ENABLED = "player_auto_resume_enabled"
         private const val KEY_PLAYER_AUTO_SKIP_SEGMENTS_ENABLED = "player_auto_skip_segments_enabled"
+        private const val KEY_PLAYER_AUTO_SKIP_SEGMENT_CATEGORIES = "player_auto_skip_segment_categories"
         private const val KEY_PLAYER_AUTO_SKIP_SERVER_BASE_URL = "player_auto_skip_server_base_url"
         private const val KEY_SPONSOR_BLOCK_PRIVATE_USER_ID = "sponsor_block_private_user_id"
         private const val KEY_PLAYER_OPEN_DETAIL_BEFORE_PLAY = "player_open_detail_before_play"
@@ -1148,7 +1213,7 @@ class AppPrefs(context: Context) {
         const val DANMAKU_AREA_MIN = 0.10f
         const val DANMAKU_AREA_MAX = 1.00f
         const val DANMAKU_AREA_STEP = 0.10f
-        const val DANMAKU_AREA_DEFAULT = DANMAKU_AREA_MAX
+        const val DANMAKU_AREA_DEFAULT = 0.30f // 默认弹幕占屏比 30%
         const val DANMAKU_AREA_COMPAT_EPSILON = 0.0001f
 
         val DANMAKU_AREA_OPTIONS: List<Float> = (1..10).map { it / 10f }
@@ -1264,6 +1329,7 @@ class AppPrefs(context: Context) {
         const val PLAYER_OSD_BTN_LIST_PANEL = "list_panel"
         const val PLAYER_OSD_BTN_SPONSOR_SUBMIT = "sponsor_submit"
         const val PLAYER_OSD_BTN_ADVANCED = "advanced"
+        const val PLAYER_OSD_BTN_CLOSE_PLAYER = "close_player"
 
         val DEFAULT_PLAYER_OSD_BUTTONS: List<String> =
             listOf(
@@ -1277,6 +1343,7 @@ class AppPrefs(context: Context) {
                 PLAYER_OSD_BTN_UP,
                 PLAYER_OSD_BTN_LIST_PANEL,
                 PLAYER_OSD_BTN_ADVANCED,
+                PLAYER_OSD_BTN_CLOSE_PLAYER,
             )
 
         private val PLAYER_OSD_BUTTON_KEYS: Set<String> =
@@ -1295,6 +1362,7 @@ class AppPrefs(context: Context) {
                 PLAYER_OSD_BTN_LIST_PANEL,
                 PLAYER_OSD_BTN_SPONSOR_SUBMIT,
                 PLAYER_OSD_BTN_ADVANCED,
+                PLAYER_OSD_BTN_CLOSE_PLAYER,
             )
 
         const val PLAYER_DOWN_KEY_OSD_FOCUS_PREV = "prev"

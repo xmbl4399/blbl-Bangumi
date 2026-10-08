@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
 import blbl.cat3399.BuildConfig
+import blbl.cat3399.core.log.AppLog
 import blbl.cat3399.core.net.BiliClient
 import blbl.cat3399.core.net.await
 import blbl.cat3399.core.net.bodyOrNull
@@ -30,11 +31,19 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
 
 object ApkUpdater {
-    private const val DEBUG_APK_URL = "https://cat3399.top/blbl/blbl-latest-debug.apk"
-    private const val RELEASE_APK_URL = "https://cat3399.top/blbl/blbl-latest-release.apk"
-    private const val CHANGELOG_URL = "https://cat3399.top/blbl/CHANGELOG.md"
+    private const val REPO_OWNER = "xmbl4399"
+    private const val REPO_NAME = "blbl-Bangumi"
+    private const val REPO = "$REPO_OWNER/$REPO_NAME"
+    private const val CHANGELOG_URL = "https://raw.githubusercontent.com/$REPO/main/CHANGELOG.md"
+
+    /** GitHub 加速镜像前缀(直连失败时按序尝试) */
+    private val MIRROR_PREFIXES =
+        listOf(
+            "https://ghproxy.net/",
+            "https://gh-proxy.com/",
+        )
     val TEST_APK_URL: String
-        get() = if (BuildConfig.DEBUG) DEBUG_APK_URL else RELEASE_APK_URL
+        get() = apkUrlFor(BuildConfig.VERSION_NAME)
     val TEST_CHANGELOG_URL: String
         get() = CHANGELOG_URL
 
@@ -183,7 +192,7 @@ object ApkUpdater {
     fun apkUrlFor(versionName: String): String {
         val cleanVersion = versionName.trim().removePrefix("v")
         val channel = if (BuildConfig.DEBUG) "debug" else "release"
-        return "https://cat3399.top/blbl/blbl-$cleanVersion-$channel.apk"
+        return "https://github.com/$REPO/releases/download/v$cleanVersion/blbl-android-$cleanVersion-$channel.apk"
     }
 
     private data class VersionHeading(
@@ -212,14 +221,41 @@ object ApkUpdater {
         url: String = TEST_APK_URL,
         onProgress: (Progress) -> Unit,
     ): File {
-        onProgress(Progress.Connecting)
-
         val dir = File(context.cacheDir, "test_update").apply { mkdirs() }
         val part = File(dir, "update.apk.part")
         val target = File(dir, "update.apk")
         runCatching { part.delete() }
         runCatching { target.delete() }
 
+        // 直连失败自动降级到 GitHub 加速镜像(国内直连 github.com 经常超时/失败)
+        var lastError: Throwable? = null
+        for (candidate in candidateUrls(url)) {
+            try {
+                onProgress(Progress.Connecting)
+                downloadFrom(candidate, part, onProgress)
+                check(part.exists() && part.length() > 0) { "downloaded file is empty" }
+                check(part.renameTo(target)) { "rename failed" }
+                return target
+            } catch (t: Throwable) {
+                if (t is CancellationException) throw t
+                lastError = t
+                AppLog.w("ApkUpdater", "download failed: $candidate", t)
+                runCatching { part.delete() }
+            }
+        }
+        throw lastError ?: IllegalStateException("download failed")
+    }
+
+    private fun candidateUrls(url: String): List<String> {
+        if (!url.startsWith("https://github.com/")) return listOf(url)
+        return listOf(url) + MIRROR_PREFIXES.map { it + url }
+    }
+
+    private suspend fun downloadFrom(
+        url: String,
+        part: File,
+        onProgress: (Progress) -> Unit,
+    ) {
         val req = Request.Builder().url(url).get().build()
         val call = okHttp.newCall(req)
         val res = call.await()
@@ -266,10 +302,6 @@ object ApkUpdater {
                 }
             }
         }
-
-        check(part.exists() && part.length() > 0) { "downloaded file is empty" }
-        check(part.renameTo(target)) { "rename failed" }
-        return target
     }
 
     fun installApk(context: Context, apkFile: File) {

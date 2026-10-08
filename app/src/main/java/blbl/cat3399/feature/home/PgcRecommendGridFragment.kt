@@ -202,7 +202,7 @@ class PgcRecommendGridFragment : Fragment(), RefreshKeyHandler, TabSwitchFocusTa
         return true
     }
 
-    private fun spanCountForPgc(): Int = BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 6)
+    private fun spanCountForPgc(): Int = BiliClient.prefs.pgcGridSpanCount.coerceIn(1, 9)
 
     override fun requestFocusFirstCardFromTab(): Boolean {
         pendingFocusFirstCardFromTab = true

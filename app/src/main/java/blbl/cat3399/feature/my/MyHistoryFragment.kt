@@ -36,6 +36,7 @@ import blbl.cat3399.feature.video.VideoCardActionController
 import blbl.cat3399.feature.video.VideoCardDismissBehavior
 import blbl.cat3399.feature.video.VideoCardVisibilityFilter
 import blbl.cat3399.feature.video.buildPagedVideoCardPlaybackHandle
+import blbl.cat3399.feature.video.hasVideoDetailIdentity
 import blbl.cat3399.feature.video.historyVideoCardPlaylistItem
 import blbl.cat3399.feature.video.openVideoDetailFromPlaybackHandle
 import blbl.cat3399.feature.video.openVideoFromPlaybackHandle
@@ -89,7 +90,7 @@ class MyHistoryFragment : Fragment(), MyTabSwitchFocusTarget, RefreshKeyHandler 
                             playbackHandle = historyPlaybackHandle(),
                             position = pos,
                             openDetailBeforePlay = BiliClient.prefs.playerOpenDetailBeforePlay,
-                            canOpenDetail = { it.bvid.isNotBlank() && (it.epId == null || it.epId <= 0L) },
+                            canOpenDetail = { it.hasVideoDetailIdentity() && (it.epId == null || it.epId <= 0L) },
                             configurePlayerIntent = { card ->
                                 card.epId?.let { putExtra(PlayerActivity.EXTRA_EP_ID, it) }
                                 card.aid?.let { putExtra(PlayerActivity.EXTRA_AID, it) }

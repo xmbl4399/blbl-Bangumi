@@ -48,6 +48,14 @@ class SearchInteractor(
         renderer.focusFirstKey()
     }
 
+    fun removeHistory(keyword: String, position: Int) {
+        BiliClient.prefs.removeSearchHistory(keyword)
+        reloadHistory()
+        renderer.updateMiddleUi(historyMatches(state.query), extra = state.suggestKeywords)
+        renderer.updateClearHistoryButton(state.query)
+        renderer.focusSuggestionAfterRemoval(position)
+    }
+
     fun loadHotAndDefault() {
         fragment.viewLifecycleOwner.lifecycleScope.launch {
             runCatching {
@@ -451,7 +459,7 @@ class SearchInteractor(
         items.forEach { loaded.add(idOf(it)) }
 
         apply(items, applied.isRefresh)
-        renderer.onResultsApplied()
+        renderer.onResultsApplied(isRefresh = applied.isRefresh)
         state.markMemoryForTab(tabIndexAtStart)
     }
 
