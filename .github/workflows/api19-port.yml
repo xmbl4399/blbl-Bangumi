@@ -1,0 +1,64 @@
+name: API19 Port
+on:
+  workflow_dispatch:
+    inputs:
+      mode: {description: "merge | build | patch", required: true, default: "merge"}
+permissions:
+  contents: write
+jobs:
+  port:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: api19-port
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-java@v4
+        if: ${{ inputs.mode == 'build' }}
+        with: {distribution: temurin, java-version: "17", cache: gradle}
+      - name: Precheck
+        run: |
+          echo "HEAD_BEFORE=$(git rev-parse HEAD)"
+          git log --oneline -3
+          grep -c kitkat app/build.gradle.kts
+      - name: Merge main
+        if: ${{ inputs.mode == 'merge' }}
+        run: |
+          set -uo pipefail
+          git config user.email ci@local; git config user.name ci
+          git fetch origin main
+          git merge -X ours --no-edit origin/main || true
+          for f in $(git diff --name-only --diff-filter=U); do git checkout --ours -- "$f"; done
+          for f in $(git diff --name-only --diff-filter=U); do git add -- "$f"; done
+          git checkout origin/main -- app/src/main/res/layout/item_bangumi_follow.xml
+          echo "=== POST-MERGE CHECKS ==="
+          grep -c "kitkatImplementation" app/build.gradle.kts
+          grep -n "BiliClient.getBytes\|toHttpUrlOrNull\|fun init(" app/src/main/java/blbl/cat3399/core/image/ImageLoader.kt | head
+          grep -n "fun newBangumi" app/src/main/java/blbl/cat3399/feature/home/PgcRecommendGridFragment.kt
+          git add -A
+          git commit -m "merge: main into api19 (prefer api19 impls)" || true
+          git push origin HEAD:api19-port
+          echo "HEAD_AFTER=$(git rev-parse HEAD)"
+      - name: Build
+        if: ${{ inputs.mode == 'build' }}
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set -uo pipefail
+          chmod +x ./gradlew
+          mkdir -p keystore
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > keystore/release.keystore
+          set +e
+          ./gradlew :app:assembleKitkatRelease -PversionName=0.1.32 -PversionCode=${{ github.run_number }} > /tmp/b.log 2>&1
+          echo "RC=$?"
+          grep -nE "^e: |error:|Unresolved reference|Cannot access" /tmp/b.log | head -60
+          tail -25 /tmp/b.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: log, path: /tmp/b.log}
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with: {name: apk, path: app/build/outputs/apk/kitkat/release/*.apk}
