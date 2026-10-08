@@ -95,7 +95,7 @@ class AppPrefs(context: Context) {
         }
 
     var mainHomeVisibleTabs: List<String>
-        get() = loadStringList(KEY_MAIN_HOME_VISIBLE_TABS)
+        get() = loadStringList(KEY_MAIN_HOME_VISIBLE_TABS).ifEmpty { DEFAULT_HOME_VISIBLE_TABS }
         set(value) = saveStringList(KEY_MAIN_HOME_VISIBLE_TABS, normalizeStringList(value))
 
     var mainCategoryVisibleTabs: List<String>
@@ -188,6 +188,19 @@ class AppPrefs(context: Context) {
     var imageQuality: String
         get() = prefs.getString(KEY_IMAGE_QUALITY, "medium") ?: "medium"
         set(value) = prefs.edit().putString(KEY_IMAGE_QUALITY, value).apply()
+
+    /** 隐藏无评分条目(默认开,与源 app 一致):Bangumi 列表剔除 score<=0 的条目 */
+    var hideNoScoreMedia: Boolean
+        get() = prefs.getBoolean(KEY_HIDE_NO_SCORE_MEDIA, true)
+        set(value) = prefs.edit().putBoolean(KEY_HIDE_NO_SCORE_MEDIA, value).apply()
+
+    /**
+     * Bangumi 数据源:auto(自动,默认)/ official / anibt / retr0。
+     * auto = 官方优先,失败自动切换反代。
+     */
+    var bangumiApiSource: String
+        get() = normalizeBangumiApiSource(prefs.getString(KEY_BANGUMI_API_SOURCE, BANGUMI_API_SOURCE_AUTO))
+        set(value) = prefs.edit().putString(KEY_BANGUMI_API_SOURCE, normalizeBangumiApiSource(value)).apply()
 
     var danmakuEnabled: Boolean
         get() = prefs.getBoolean(KEY_DANMAKU_ENABLED, true)
@@ -1037,6 +1050,20 @@ class AppPrefs(context: Context) {
         private const val KEY_STARTUP_PAGE = "startup_page"
         private const val KEY_CUSTOM_PAGE_CONFIG = "custom_page_config"
         private const val KEY_MAIN_HOME_VISIBLE_TABS = "main_home_visible_tabs"
+        /** 二改默认主页 tab:推荐/热门/TV动画/其他动画/日剧/欧美剧/华语剧/韩剧/电影;
+         * 源 app 的"番剧/影视"默认隐藏(可在设置手动勾回) */
+        private val DEFAULT_HOME_VISIBLE_TABS =
+            listOf(
+                "recommend",
+                "popular",
+                "bangumi_calendar",
+                "anime_movie",
+                "drama",
+                "western_drama",
+                "chinese_drama",
+                "korean_drama",
+                "movie",
+            )
         private const val KEY_MAIN_CATEGORY_VISIBLE_TABS = "main_category_visible_tabs"
         private const val KEY_MAIN_LIVE_VISIBLE_TABS = "main_live_visible_tabs"
         private const val KEY_MAIN_MY_VISIBLE_TABS = "main_my_visible_tabs"
@@ -1045,6 +1072,8 @@ class AppPrefs(context: Context) {
         private const val KEY_AUTO_UPDATE_CHECK_ENABLED = "auto_update_check_enabled"
         private const val KEY_AUTO_UPDATE_IGNORED_VERSION_NAME = "auto_update_ignored_version_name"
         private const val KEY_IMAGE_QUALITY = "image_quality"
+        private const val KEY_BANGUMI_API_SOURCE = "bangumi_api_source"
+        private const val KEY_HIDE_NO_SCORE_MEDIA = "hide_no_score_media"
         private const val KEY_DANMAKU_ENABLED = "danmaku_enabled"
         private const val KEY_DANMAKU_ALLOW_TOP = "danmaku_allow_top"
         private const val KEY_DANMAKU_ALLOW_BOTTOM = "danmaku_allow_bottom"
@@ -1221,6 +1250,12 @@ class AppPrefs(context: Context) {
         const val API_SOURCE_WEB = "web"
         const val API_SOURCE_APP = "app"
 
+        // Bangumi 数据源
+        const val BANGUMI_API_SOURCE_AUTO = "auto"
+        const val BANGUMI_API_SOURCE_OFFICIAL = "official"
+        const val BANGUMI_API_SOURCE_ANIBT = "anibt"
+        const val BANGUMI_API_SOURCE_RETR0 = "retr0"
+
         const val PLAYER_PLAYBACK_MODE_NONE = "none"
         const val PLAYER_PLAYBACK_MODE_LOOP_ONE = "loop_one"
         const val PLAYER_PLAYBACK_MODE_EXIT = "exit"
@@ -1364,6 +1399,15 @@ class AppPrefs(context: Context) {
             return when (value?.trim()?.lowercase()) {
                 API_SOURCE_APP -> API_SOURCE_APP
                 else -> API_SOURCE_WEB
+            }
+        }
+
+        fun normalizeBangumiApiSource(value: String?): String {
+            return when (value?.trim()?.lowercase()) {
+                BANGUMI_API_SOURCE_OFFICIAL -> BANGUMI_API_SOURCE_OFFICIAL
+                BANGUMI_API_SOURCE_ANIBT -> BANGUMI_API_SOURCE_ANIBT
+                BANGUMI_API_SOURCE_RETR0 -> BANGUMI_API_SOURCE_RETR0
+                else -> BANGUMI_API_SOURCE_AUTO
             }
         }
     }
