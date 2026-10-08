@@ -1,0 +1,98 @@
+name: Android BGM (api19 + 新番表) Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version name (e.g. 0.1.29.5-bgm)"
+        required: true
+      changelog:
+        description: "Release notes/changelog (optional; supports multiline)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-bgm-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: api19-bgm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      - name: Mark app label
+        run: |
+          set -euo pipefail
+          sed -i 's|<string name="app_name">.*</string>|<string name="app_name">Blbl-bgm</string>|' app/src/main/res/values/strings.xml
+      - name: Decode keystore
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > keystore/release.keystore
+      - name: Build kitkat release APK
+        id: build
+        continue-on-error: true
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set +e
+          ./gradlew :app:assembleKitkatRelease \
+            -PversionName=${{ inputs.version_name }} \
+            -PversionCode=${{ github.run_number }} > /tmp/b.log 2>&1
+          code=$?
+          echo "GRADLE_EXIT=$code" | tee -a /tmp/b.log
+          exit $code
+      - name: Show build errors
+        if: always()
+        run: |
+          set +e
+          echo "===== errors ====="
+          grep -nE "^e: |error:|Unresolved reference|Cannot access|Type mismatch|None of the following|Compilation error|^FAILURE|^\* What went wrong" /tmp/b.log | head -200
+          echo "===== tail ====="
+          tail -100 /tmp/b.log
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: /tmp/b.log
+      - name: Upload APK artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-api19-bgm-release-apk
+          path: app/build/outputs/apk/kitkat/release/app-kitkat-release.apk
+      - name: Publish release
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          RELEASE_TAG: ${{ startsWith(inputs.version_name, 'v') && inputs.version_name || format('v{0}', inputs.version_name) }}
+          CHANGELOG: ${{ inputs.changelog }}
+        run: |
+          set -euo pipefail
+          BUILD_SHA="$(git rev-parse HEAD)"
+          APK_PATH="app/build/outputs/apk/kitkat/release/app-kitkat-release.apk"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            if [ -n "${CHANGELOG:-}" ]; then
+              printf '%s' "$CHANGELOG" > changelog.md
+              gh release edit "$RELEASE_TAG" --notes-file changelog.md
+            fi
+          else
+            if [ -n "${CHANGELOG:-}" ]; then
+              printf '%s' "$CHANGELOG" > changelog.md
+              gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file changelog.md --target "$BUILD_SHA"
+            else
+              gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "$BUILD_SHA"
+            fi
+          fi
+          gh release upload "$RELEASE_TAG" "${APK_PATH}#blbl-android-${VERSION_NAME}-api19-bgm-release.apk" --clobber
