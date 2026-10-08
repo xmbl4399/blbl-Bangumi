@@ -191,6 +191,18 @@ class SettingsRenderer(
                     SettingEntry(SettingId.ImageQuality, "图片质量", prefs.imageQuality, null),
                     SettingEntry(SettingId.ThemePreset, "主题", SettingsText.themePresetText(prefs.themePreset), null),
                     SettingEntry(SettingId.ApiSource, "接口类别", SettingsText.apiSourceText(prefs.apiSource), null),
+                    SettingEntry(
+                        SettingId.BangumiApiSource,
+                        "新番表数据源",
+                        SettingsText.bangumiApiSourceText(prefs.bangumiApiSource),
+                        "官方被墙时自动切换到可用反代",
+                    ),
+                    SettingEntry(
+                        SettingId.HideNoScoreMedia,
+                        "隐藏无评分条目",
+                        if (prefs.hideNoScoreMedia) "开" else "关",
+                        null,
+                    ),
                     SettingEntry(SettingId.UserAgent, "User-Agent", prefs.userAgent.take(60), null),
                     SettingEntry(SettingId.Ipv4OnlyEnabled, "是否只允许使用IPV4", if (prefs.ipv4OnlyEnabled) "开" else "关", null),
                     SettingEntry(SettingId.GaiaVgate, "风控验证", gaiaVgateStatusText(), "播放被拦截后可在此手动完成人机验证"),
