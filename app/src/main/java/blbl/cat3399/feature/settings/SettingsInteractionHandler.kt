@@ -22,6 +22,7 @@ import blbl.cat3399.core.util.DeviceAbi
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import blbl.cat3399.R
+import blbl.cat3399.core.api.BangumiApi
 import blbl.cat3399.BuildConfig
 import blbl.cat3399.core.io.CreateDocumentRequest
 import blbl.cat3399.core.io.DocumentExporter
@@ -734,6 +735,35 @@ class SettingsInteractionHandler(
                     AppToast.show(activity, "接口类别：$selected")
                     renderer.refreshSection(entry.id)
                 }
+            }
+
+            SettingId.BangumiApiSource -> {
+                val options =
+                    listOf(
+                        blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_AUTO to "自动（官方故障切换）",
+                        blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_OFFICIAL to "官方 api.bgm.tv",
+                        blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_ANIBT to "反代 bgmapi.anibt.net",
+                        blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_RETR0 to "反代 bgm.retr0.xyz",
+                    )
+                showChoiceDialog(
+                    title = "新番表数据源",
+                    items = options.map { it.second },
+                    current = SettingsText.bangumiApiSourceText(prefs.bangumiApiSource),
+                ) { selected ->
+                    val key = options.firstOrNull { it.second == selected }?.first
+                        ?: blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_AUTO
+                    prefs.bangumiApiSource = key
+                    BangumiApi.clearAllBrowseCache()
+                    AppToast.show(activity, "新番表数据源：（已清空缓存）")
+                    renderer.refreshSection(entry.id)
+                }
+            }
+
+            SettingId.HideNoScoreMedia -> {
+                prefs.hideNoScoreMedia = !prefs.hideNoScoreMedia
+                BangumiApi.clearAllBrowseCache()
+                AppToast.show(activity, "隐藏无评分条目：" + (if (prefs.hideNoScoreMedia) "开" else "关") + "（已清空缓存）")
+                renderer.refreshSection(entry.id)
             }
 
             SettingId.UserAgent -> showUserAgentDialog(state.currentSectionIndex, entry.id)
