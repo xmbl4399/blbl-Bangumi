@@ -47,6 +47,7 @@ import blbl.cat3399.feature.following.FollowingListActivity
 import blbl.cat3399.feature.login.QrLoginActivity
 import blbl.cat3399.feature.player.engine.IjkPlayerPlugin
 import blbl.cat3399.feature.player.engine.IjkPlayerPluginUi
+import blbl.cat3399.feature.search.SearchFragment
 import blbl.cat3399.feature.settings.SettingsActivity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -88,6 +89,7 @@ class MainActivity : BaseActivity(), SidebarFocusHost {
     private var pendingSidebarCollapseToken: Int = 0
     private var lastBackAtMs: Long = 0L
     private var lastMainFocusAtMs: Long = 0L
+    private var pendingSearchReturnToBangumi: Boolean = false
 
     private data class FocusabilitySnapshot(
         val descendantFocusability: Int,
@@ -807,6 +809,38 @@ class MainActivity : BaseActivity(), SidebarFocusHost {
 
         currentRootNavId = navId
         return true
+    }
+
+    /** 从首页新番表跳转搜索:切到搜索页并带上待搜索关键词;返回键可回到新番表。 */
+    fun navigateToSearch(keyword: String, returnToBangumi: Boolean = false) {
+        val kw = keyword.trim()
+        if (kw.isEmpty()) return
+        pendingSearchReturnToBangumi = returnToBangumi
+        val searchNavId = SidebarNavAdapter.ID_SEARCH
+        if (!isValidRootNavId(searchNavId)) return
+        if (currentRootNavId != searchNavId) {
+            switchRoot(searchNavId, clearBackStack = false)
+        }
+        // switchRoot 使用 commitAllowingStateLoss(异步事务);post 排在事务之后执行,
+        // 此时 fragment 已可查找;若仍不可用则静默跳过(用户可手动搜索)。
+        binding.root.post {
+            if (isFinishing || isDestroyed) return@post
+            val search = supportFragmentManager.findFragmentByTag(rootTagFor(searchNavId)) as? SearchFragment
+            search?.searchKeyword(kw)
+        }
+    }
+
+    /** 消费"从搜索返回新番表"标记(一次性)。 */
+    fun consumeSearchReturnToBangumi(): Boolean {
+        val v = pendingSearchReturnToBangumi
+        pendingSearchReturnToBangumi = false
+        return v
+    }
+
+    /** 从搜索页返回首页(新番表所在根页)。 */
+    fun returnToBangumiFromSearch() {
+        AppLog.d("MainActivity", "returnToBangumiFromSearch")
+        switchRoot(SidebarNavAdapter.ID_HOME, clearBackStack = false)
     }
 
     private fun currentRootFragment(): Fragment? {
