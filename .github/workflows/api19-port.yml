@@ -2,7 +2,7 @@ name: API19 Port
 on:
   workflow_dispatch:
     inputs:
-      mode: {description: "merge | build | patch", required: true, default: "merge"}
+      mode: {description: "merge | build", required: true, default: "merge"}
 permissions:
   contents: write
 jobs:
@@ -10,34 +10,36 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: api19-port
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+        with: {ref: api19-port, fetch-depth: 0, token: "${{ secrets.GITHUB_TOKEN }}"}
       - uses: actions/setup-java@v4
         if: ${{ inputs.mode == 'build' }}
         with: {distribution: temurin, java-version: "17", cache: gradle}
-      - name: Precheck
-        run: |
-          echo "HEAD_BEFORE=$(git rev-parse HEAD)"
-          git log --oneline -3
-          grep -c kitkat app/build.gradle.kts
-      - name: Merge main
+      - name: Merge
         if: ${{ inputs.mode == 'merge' }}
         run: |
           set -uo pipefail
           git config user.email ci@local; git config user.name ci
+          BASE=$(git merge-base HEAD origin/main)
           git fetch origin main
-          git merge -X ours --no-edit origin/main || true
-          for f in $(git diff --name-only --diff-filter=U); do git checkout --ours -- "$f"; done
-          for f in $(git diff --name-only --diff-filter=U); do git add -- "$f"; done
+          OURS=$(git rev-parse HEAD)
+          git merge --no-commit --no-ff origin/main || true
+          for f in $(git diff --name-only --diff-filter=U); do git checkout --ours -- "$f"; git add -- "$f"; done
+          echo "===== restore shared files to api19 version ====="
+          # every path modified by BOTH branches -> keep api19's exact content
+          git diff --name-only "$BASE" "$OURS" > /tmp/ours.list
+          git diff --name-only "$BASE" origin/main > /tmp/theirs.list
+          comm -12 <(sort /tmp/ours.list) <(sort /tmp/theirs.list) > /tmp/both.list
+          wc -l /tmp/both.list
+          while read -r f; do
+            [ -z "$f" ] && continue
+            if git cat-file -e "$OURS:$f" 2>/dev/null; then git checkout "$OURS" -- "$f"; fi
+          done < /tmp/both.list
+          # item_bangumi_follow.xml needs main's tags/episode views
           git checkout origin/main -- app/src/main/res/layout/item_bangumi_follow.xml
-          echo "=== POST-MERGE CHECKS ==="
-          grep -c "kitkatImplementation" app/build.gradle.kts
-          grep -n "BiliClient.getBytes\|toHttpUrlOrNull\|fun init(" app/src/main/java/blbl/cat3399/core/image/ImageLoader.kt | head
-          grep -n "fun newBangumi" app/src/main/java/blbl/cat3399/feature/home/PgcRecommendGridFragment.kt
+          echo "=== checks ==="
+          grep -n "toHttpUrlOrNull\|BiliClient.getBytes" app/src/main/java/blbl/cat3399/core/image/ImageLoader.kt || echo "ImageLoader=api19 OK"
           git add -A
-          git commit -m "merge: main into api19 (prefer api19 impls)" || true
+          git commit -m "merge: main into api19 (shared files kept on api19 side)" || true
           git push origin HEAD:api19-port
           echo "HEAD_AFTER=$(git rev-parse HEAD)"
       - name: Build
@@ -55,7 +57,7 @@ jobs:
           ./gradlew :app:assembleKitkatRelease -PversionName=0.1.32 -PversionCode=${{ github.run_number }} > /tmp/b.log 2>&1
           echo "RC=$?"
           grep -nE "^e: |error:|Unresolved reference|Cannot access" /tmp/b.log | head -60
-          tail -25 /tmp/b.log
+          tail -20 /tmp/b.log
       - uses: actions/upload-artifact@v4
         if: always()
         with: {name: log, path: /tmp/b.log}
