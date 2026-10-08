@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.multidex.MultiDexApplication
 import blbl.cat3399.core.log.AppLog
 import blbl.cat3399.core.log.CrashTracker
+import blbl.cat3399.core.api.BangumiApi
 import blbl.cat3399.core.emote.ReplyEmotePanelRepository
 import blbl.cat3399.core.net.BiliClient
 import blbl.cat3399.core.net.WebCookieMaintainer
@@ -31,6 +32,7 @@ class BlblApp : MultiDexApplication() {
             installConscrypt()
         }
         BiliClient.init(this)
+        BangumiApi.init(this)
         appScope.launch {
             runCatching { WebCookieMaintainer.ensureDailyMaintenance() }
                 .onFailure { AppLog.w("BlblApp", "daily maintenance failed", it) }
