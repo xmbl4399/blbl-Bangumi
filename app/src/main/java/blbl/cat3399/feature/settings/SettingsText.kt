@@ -160,6 +160,14 @@ object SettingsText {
             else -> "Web"
         }
 
+    fun bangumiApiSourceText(prefValue: String): String =
+        when (prefValue) {
+            blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_OFFICIAL -> "官方"
+            blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_ANIBT -> "反代 anibt"
+            blbl.cat3399.core.prefs.AppPrefs.BANGUMI_API_SOURCE_RETR0 -> "反代 retr0"
+            else -> "自动（官方故障切换）"
+        }
+
     fun uiScaleFactorText(factor: Float): String {
         val v = factor.takeIf { it.isFinite() } ?: 1.0f
         return String.format(Locale.US, "%.2fx", v)
