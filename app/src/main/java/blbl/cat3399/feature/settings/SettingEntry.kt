@@ -12,6 +12,8 @@ enum class SettingId(
     ImageQuality("image_quality"),
     ThemePreset("theme_preset"),
     ApiSource("api_source"),
+    BangumiApiSource("bangumi_api_source"),
+    HideNoScoreMedia("hide_no_score_media"),
     UserAgent("user_agent"),
     Ipv4OnlyEnabled("ipv4_only_enabled"),
     GaiaVgate("gaia_vgate"),
