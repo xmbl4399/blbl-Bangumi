@@ -2769,7 +2769,6 @@ class PlayerActivity : BaseActivity() {
     private fun shouldAttemptHighSpecFallback(error: PlaybackException): Boolean {
         return when (error.errorCode) {
             PlaybackException.ERROR_CODE_FAILED_RUNTIME_CHECK,
-            PlaybackException.ERROR_CODE_NOT_SUPPORTED,
             PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
             PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
@@ -2779,7 +2778,6 @@ class PlayerActivity : BaseActivity() {
             PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_INIT_FAILED,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_WRITE_FAILED,
-            PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_INIT_FAILED,
             PlaybackException.ERROR_CODE_AUDIO_TRACK_OFFLOAD_WRITE_FAILED,
             -> true
 
