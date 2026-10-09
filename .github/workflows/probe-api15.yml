@@ -44,6 +44,38 @@ jobs:
           code=$?
           echo "GRADLE_EXIT=$code" >> /tmp/p.log
           exit $code
+      - name: Lint NewApi scan
+        if: always()
+        continue-on-error: true
+        run: |
+          set +e
+          ./gradlew :app:lintKitkatRelease > /tmp/l.log 2>&1
+          echo "LINT_EXIT=$?" >> /tmp/p.log
+          echo "===== lint NewApi / InlinedApi =====" >> /tmp/p.log
+          python3 -c "
+import xml.etree.ElementTree as ET, glob, collections
+tot = collections.Counter()
+rows = []
+pats = ['app/build/reports/lint-results-*.xml']
+for p in pats:
+    for r in glob.glob(p):
+        try:
+            t = ET.parse(r).getroot()
+        except Exception:
+            continue
+        for i in t.iter('issue'):
+            iid = i.get('id')
+            if iid in ('NewApi', 'InlinedApi', 'NewApiSuppress'):
+                tot[iid] += 1
+                for l in i.iter('location'):
+                    f = (l.get('file') or '').split('/app/src/main/')[-1]
+                    rows.append(iid + ' | ' + f + ':' + str(l.get('line')) + ' | ' + (i.get('message') or ''))
+print('TOTAL:', dict(tot))
+for x in sorted(set(rows)):
+    print('  ', x)
+" >> /tmp/p.log 2>&1
+          echo "===== raw lint files =====" >> /tmp/p.log
+          ls -la app/build/reports/ >> /tmp/p.log 2>&1
       - name: Show errors
         if: always()
         run: |
@@ -60,3 +92,19 @@ jobs:
         with:
           name: probe-log
           path: /tmp/p.log
+      - name: Upload APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-apk
+          path: app/build/outputs/apk/kitkat/release/app-kitkat-release.apk
+          if-no-files-found: warn
+      - name: Dump merged manifest minsdk
+        if: always()
+        run: |
+          set +e
+          for f in $(find app/build -name 'AndroidManifest.xml' -path '*kitkatRelease*' | head -2); do
+            echo "--- $f ---"
+            grep -o 'minSdkVersion="[0-9]*"' "$f"
+            grep -o 'targetSdkVersion="[0-9]*"' "$f"
+          done
