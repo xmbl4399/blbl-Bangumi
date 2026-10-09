@@ -60,18 +60,3 @@ jobs:
         with:
           name: probe-log
           path: /tmp/p.log
-      - name: Upload APK
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: probe-apk
-          path: app/build/outputs/apk/kitkat/release/app-kitkat-release.apk
-          if-no-files-found: warn
-      - name: Dump merged manifest minsdk
-        if: always()
-        run: |
-          set +e
-          find app/build -name 'AndroidManifest.xml' -path '*kitkat*' | head -5
-          for f in $(find app/build -name 'AndroidManifest.xml' -path '*kitkatRelease*' | head -2); do
-            echo "--- $f ---"; grep -o 'minSdkVersion="[0-9]*"' "$f"; grep -o 'targetSdkVersion="[0-9]*"' "$f"
-          done
