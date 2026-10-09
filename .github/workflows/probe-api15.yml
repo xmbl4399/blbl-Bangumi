@@ -1,0 +1,62 @@
+name: Probe API15 Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "git ref to build (probe)"
+        required: false
+        default: "probe/api15"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      - name: Decode keystore
+        run: |
+          mkdir -p keystore
+          echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > keystore/release.keystore
+      - name: Build probe
+        id: build
+        continue-on-error: true
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          set +e
+          ./gradlew :app:assembleKitkatRelease \
+            -PversionName=0.1.29.6-probe15 \
+            -PversionCode=${{ github.run_number }} > /tmp/p.log 2>&1
+          code=$?
+          echo "GRADLE_EXIT=$code" >> /tmp/p.log
+          exit $code
+      - name: Show errors
+        if: always()
+        run: |
+          set +e
+          echo "===== manifest merger / minSdk errors ====="
+          grep -nE "uses-sdk|minSdk|Manifest merger|is not compatible|AndroidManifest" /tmp/p.log | head -80
+          echo "===== compile errors ====="
+          grep -nE "^e: |error:|Unresolved reference|Cannot access|None of the following|^FAILURE|What went wrong" /tmp/p.log | head -120
+          echo "===== tail ====="
+          tail -60 /tmp/p.log
+      - name: Upload log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-log
+          path: /tmp/p.log
