@@ -28,6 +28,7 @@ android {
         }
 
         multiDexEnabled = true
+        isCoreLibraryDesugaringEnabled = true
     }
 
     signingConfigs {
@@ -145,12 +146,12 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("com.google.android.material:material:1.12.0")
+    implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.recyclerview:recyclerview:1.2.1")
     implementation("androidx.viewpager2:viewpager2:1.0.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
@@ -160,10 +161,10 @@ dependencies {
     "kitkatImplementation"("com.squareup.okhttp3:okhttp:3.12.13")
     "lollipopplusImplementation"("com.squareup.okhttp3:okhttp:4.12.0")
 
-    "kitkatImplementation"("androidx.media3:media3-exoplayer:1.4.1")
-    "kitkatImplementation"("androidx.media3:media3-exoplayer-hls:1.4.1")
-    "kitkatImplementation"("androidx.media3:media3-ui:1.4.1")
-    "kitkatImplementation"("androidx.media3:media3-datasource:1.4.1")
+    "kitkatImplementation"("androidx.media3:media3-exoplayer:1.2.1")
+    "kitkatImplementation"("androidx.media3:media3-exoplayer-hls:1.2.1")
+    "kitkatImplementation"("androidx.media3:media3-ui:1.2.1")
+    "kitkatImplementation"("androidx.media3:media3-datasource:1.2.1")
 
     "lollipopplusImplementation"("androidx.media3:media3-exoplayer:1.8.0")
     "lollipopplusImplementation"("androidx.media3:media3-exoplayer-hls:1.8.0")
