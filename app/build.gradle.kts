@@ -18,7 +18,7 @@ android {
 
     defaultConfig {
         applicationId = "blbl.cat3399"
-        minSdk = 19
+        minSdk = 15
         targetSdk = 36
         versionCode = (project.findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = project.findProperty("versionName") as String? ?: "0.1.0"
@@ -58,7 +58,7 @@ android {
     productFlavors {
         create("kitkat") {
             dimension = "api"
-            minSdk = 19
+            minSdk = 15
             applicationIdSuffix = ".kitkat"
             versionNameSuffix = "-kitkat"
         }
@@ -142,6 +142,7 @@ dependencies {
     implementation(files("libs/ijkplayer-cmake-release.aar"))
 
     implementation("androidx.multidex:multidex:2.0.1")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.12.0")
